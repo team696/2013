@@ -23,7 +23,6 @@ import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.Relay;
 import edu.wpi.first.wpilibj.Solenoid;
 import edu.wpi.first.wpilibj.Accelerometer;
-import edu.wpi.first.wpilibj.AccumulatorResult;
 /**
  * The VM is configured to automatically run this class, and to call the
  * functions corresponding to each mode, as described in the IterativeRobot
@@ -74,6 +73,7 @@ public class MainCode extends IterativeRobot {
     double kickUp = 0.0;
     double leftDrive = 0.0;
     double rightDrive = 0.0;
+    double dr_clouse_added_this_for_testing_github = 999.9;
     //flyWheelValues begin//
 
     double flyWheelSetSpeed = 0.0;
