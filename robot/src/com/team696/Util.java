@@ -9,11 +9,32 @@ package com.team696;
  * @author YoungJae
  */
 public class Util {
-    public static double deadZone(double val, double LowVal, double HighVal) {//y
-        if ((val > LowVal)&&(val < HighVal)) { 
-            return ((LowVal+HighVal)/2);
+    private static double out;
+    public static double deadZone(double val, double lowVal, double highVal, double returnVal) {//y
+        if ((val > lowVal)&&(val < highVal)) { 
+            return (returnVal);
         }
         return (val);
+    }
+    public static double seperatedConstrain(double val,double minVal, double maxVal, double lowerBreak, double higherBreak, double center){
+       if(val<center){
+            return(constrain(map(val, minVal, center, minVal, lowerBreak),minVal,maxVal));
+       }else if (val>center){
+            return(constrain(map(val, center, maxVal, higherBreak, maxVal),minVal,maxVal));
+       }else if (val == center){
+            return(center);        
+       }
+       return(center);    
+    }
+    public static double smoothDeadZone(double val, double lowVal, double highVal, double lowerEnd, double higherEnd, double returnVal) {//y
+        if ((val > lowVal)&&(val < highVal)) { 
+            return (returnVal);
+        }
+        else if(val<lowVal){
+            return(map(val,returnVal,lowerEnd,lowVal,lowerEnd));
+        }else{
+            return(map(val,returnVal,higherEnd,highVal,higherEnd));
+        }
     }
     public static double map(double val, double lowIn, double highIn, double lowOut, double highOut) {//y
         return lerp(lowOut, highOut, norm(lowIn, highIn, val));
@@ -67,5 +88,28 @@ public class Util {
     }
     public static double smooth(double valWanted, double lastVal, double division){//y
         return(((valWanted-lastVal)/division)+lastVal);
+    }
+    public static double slowDown(double valWanted, double lastVal, double division){//y
+        return(((valWanted-lastVal)/division));
+    }
+    public static double lowPass(double in, double a){
+        out = (a * in) + out * (1-a);
+        return(out);
+    }
+    public static double signOf(double num){
+        if(num>=0){
+            return(1);
+        }
+        return(-1);
+
+    }
+    public static double absDif(double one, double two){
+        one = abs(one);
+        two = abs(two);
+        if(two>one){
+            return(two-one);  
+        }
+        return(one-two);
+
     }
 }

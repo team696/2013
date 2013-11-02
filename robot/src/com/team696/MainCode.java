@@ -37,9 +37,6 @@ public class MainCode extends IterativeRobot {
      * This function is run when the robot is first started up and should be
      * used for any initialization code.
      */
-    PIDController flyWheelPID = new PIDController(5.0, 0.07, 1.0);
-    PIDController visionPID = new PIDController(0.7, 0.03, 0.0);
-    PIDController ultrasonicController = new PIDController(1.0, 0.0, 0.0);
     DriverStationLCD lcd = DriverStationLCD.getInstance();
     RobotDrive drive = new RobotDrive(8, 4, 1, 3); //motors
     Talon flywheelMotorTalon1 = new Talon(5);
@@ -48,8 +45,6 @@ public class MainCode extends IterativeRobot {
     Talon kickUpTalon = new Talon(9);
     Talon pickUpRollersTalon = new Talon(7);
     SmartDashboard dash = new SmartDashboard();
-    DigitalInput encoderA = new DigitalInput(2);
-    DigitalInput encoderB = new DigitalInput(3);
     Solenoid shooterPos = new Solenoid(3);
     Solenoid frisbeeFeed = new Solenoid(4);
     Solenoid gearBoxWinchLeft = new Solenoid(5);
@@ -57,63 +52,18 @@ public class MainCode extends IterativeRobot {
     Solenoid gearBoxDriveRight = new Solenoid(7);
     Solenoid gearBoxWinchRight = new Solenoid(8);
     Solenoid firstClimb = new Solenoid(2);
-    //Solenoid firstClimb = new Solenoid(2); //wtf here need alot\/
     Relay secondThirdRelease = new Relay(1);
-    // AUTO CONSTANTS DO NOT TOUCH
-    //FirstAuto&&Third
-    double upDelay1 = 1.7;
-    double retractDelay1 = 0.3;
-    double extendDelay1 = 0.6;
-    double flySpeed1 = -1.0;
-    double firstTurnSpeed1 = 0.7;
-    double firstTurnDelay1 = 0.45;
-    double forwardSpeed1 = 0.6;
-    double forwardDelay1 = 3;
-    double secondTurnDelay1 = 0.4;
-    double secondTurnSpeed1 = 0.7;
-    double conveyorUpDelay1 = 3;
-    double backSpeed1 = 1;
-    double backDelay1 = 0.7;
-    double autoAimDelay1 = 3.5;
-    double lastShootDelay1 = 0.1;
-    //SecondAuto CONSTANTS WORKED IN INLAND EMPIRE LAST QUAL. MATCH.
-    double upDelay2 = 1.6;
-    double retractDelay2 = 0.25;
-    double extendDelay2 = 0.6;
-    double flySpeed2 = -1.0;
-    double firstTurnSpeed2 = 0.7;
-    double firstTurnDelay2 = 0.45;
-    double forwardSpeed2 = 0.7;
-    double forwardDelay2 = 4.5;
-    double secondTurnDelay2 = 0.4;
-    double secondTurnSpeed2 = 0.7;
-    double conveyorUpDelay2 = 2.3;
-    double backSpeed2 = 1;
-    double backDelay2 = 0.95;
-    double autoAimDelay2 = 2.5;
-    double lastShootDelay2 = 0.1;
-    //Third Auto
-    double upDelay3 = 1.7;
-    double retractDelay3 = 0.4;
-    double extendDelay3 = 0.9;
-    double flySpeed3 = -1.0;
-    double firstTurnSpeed3 = 0.6;
-    double firstTurnDelay3 = 0.3;
-    double forwardSpeed3 = 0.6;
-    double forwardDelay3 = 3;
-    double secondTurnDelay3 = 0.8;
-    double secondTurnSpeed3 = 0.7;
-    double conveyorUpDelay3 = 3;
-    double backSpeed3 = 0.9;
-    double backDelay3 = 1.3;
-    double autoAimDelay3 = 3.5;
-    double lastShootDelay3 = 0.1;
-    
-    //OTHER STUFF
-    Timer flywheelTimer = new Timer();
+    Encoder leftEncoder = new Encoder(6, 7);//A on 6, B on 7
+    Encoder rightEncoder = new Encoder(8, 9);//A on 8, B on 9
+    /*Encoder leftDriveEncoder = new Encoder(6, 7, true, CounterBase.EncodingType.k4X);
+    Encoder rightCriveEncoder = new Encoder(8, 9, false, CounterBase.EncodingType.k4X);*/
     Timer shooterTimer = new Timer();
-    int loadPos = 0;
-    int autoShotsFired = 0;
+    Timer fireTimer = new Timer();
+    Timer autonomousTimer = new Timer();
+
+    PIDController speedController = new PIDController(0.3, 0.0, 0.2);
+    PIDController turnController = new PIDController(6.0, 0.2, 1.0);
+    double cumAngle = 0.0;
     Compressor compressor = new Compressor(1, 2); // compressor
     double oldX = 0.0;
     double throttle = 0.0;
@@ -123,85 +73,96 @@ public class MainCode extends IterativeRobot {
     double kickUp = 0.0;
     double leftDrive = 0.0;
     double rightDrive = 0.0;
-    double normalizedCenterX = 0.5;
-    //PID variables begin here//
-    double Kp = 0.0;
-    double Ki = 0.0;
-    double Kd = 0.0;
-    //PID variables end here//
     //flyWheelValues begin//
-    double pastTimer = 0.0;
-    double pastCount = 0.0;
+
     double flyWheelSetSpeed = 0.0;
-    double flyWheelPower = 0.0;
-    double flyWheelSpeed = 0.0;
-    double oldRightDriveVal = 0.0;
-    double oldLeftDriveVal = 0.0;
-    double pastFlyWheelPower = 0.0;
-    double alpha = 0.5;
+
     //flyWheelValues end//
     double rightDriveVal = 0.0;
     double leftDriveVal = 0.0;
+    double rightDriveSetVal = 0.0;
+    double leftDriveSetVal = 0.0;
     boolean doneAiming = false;
     boolean kickUpEnable = false;
     boolean runOnce = true;
-    boolean loadEnable = false;
-    boolean frontRollers = false;
+    
+    
     boolean shooterEnable = false;
-    boolean autoAimEnable = false;
     boolean shooterPosUp = false;
     boolean firstClimbEnable = false;
     boolean secondClimbEnable;
     boolean thirdClimbEnable;
-    boolean frisbeeLoad;
-    boolean hoodUp = true;
     boolean PTOPosition = false;
-    boolean flyWheelIncreaseOld = false;
-    boolean flyWheelIncrease = false;
-    boolean flyWheelDecreaseOld = false;
-    boolean flyWheelDecrease = false;
     boolean[] oldButtons = new boolean[13];
     boolean[] oldCypressButtons = new boolean[15];
-    boolean loading = false;
     boolean fastTurn = false;
+    boolean fire = false;
+    boolean oldFire = false;
     double levelTwoWinch = 0.0;
     double levelThreeWinch = 0.0;
     Encoder flyWheelEncoder = new Encoder(4, 5, false, CounterBase.EncodingType.k4X); //see if this still works
-    Joystick controller = new Joystick(1);
-    AnalogChannel distanceSensor = new AnalogChannel(1);
-    double sumTime = 0;
+    //Joystick controller = new Joystick(1);
+    Joystick controller2 = new Joystick(1);
     double allowedDistance = 108.0;
     int imageSize = 640;//size of image returned by camera(use for image turn tracking)
-    int numShot = 0;
-    double pastFlywheelCount;
-    double autonomousMode = 0;
-    double pastFlyweelTimer;
+    
+    
+    double autonomousMode = 2;
+    
     Timer autoTimer = new Timer();    //add these to variables and objects
     int autonomousStage = 0;
     boolean runAuto = true;
 
-    public void robotInit() {
-        runOnce = true;
 
+    double speed = 0.0;
+    double turnSpeed = 0.0;
+    double turnSetPower = 0.0;
+    double driveSetPower = 0.0;
+    double autoPosition = 0.0;
+    double autoPosSetPower = 0.0;
+    //AUTO VARS
+    double shooterUpTime = 1.6;
+    double autoPos = 1;
+    double shootTime = 0.6;
+    double oldRightDist = 0.0;
+    double oldLeftDist = 0.0;
+    double secondFireStart = 0;
+    boolean firstRun = true;
+    boolean secondFireFirstRun = true;
+
+    public void robotInit() {
+        autonomousTimer.start();
+        leftEncoder.start();
+        
+        rightEncoder.start();
+
+        /*leftEncoder.start();
+        righTDriveEncoder.start();
+        leftDriveEncoder.setDistancePerPulse(1 / 1000.0);//0.09162978572970230278849376534565);
+        rightDriveEncoder.setDistancePerPulse(1 / 1000.0);//0.09162978572970230278849376534565);*/
+
+        runOnce = true;
+        fireTimer.start();
         shooterTimer.start();
         drive.tankDrive(0.0, 0.0);
         flywheelMotorTalon1.set(0.0);
         flywheelMotorTalon2.set(0.0);
-        //getController();
-        getCypress();
+        getController();
+        //getCypress();
         compressor.start();
-        flywheelTimer.start();
+        //leftEncoder.setDistancePerPulse(1 / 1000.0);
+        //rightEncoder.setDistancePerPulse(1 / 1000.0);
+                        
         //flyWheelEncoder.start();
         flywheelMotorTalon2.set(0.0);
         frisbeeFeed.set(false);
         flyWheelEncoder.start();
-        //getCypress();
         //firstClimb.set(false);
         //secondThirdRelease.set(Relay.Value.kOff);
         autoTimer.start();                //add this to robotInit()
         autoTimer.reset();
-        sumTime = autoTimer.get();
-        lcd.println(DriverStationLCD.Line.kUser1, 1, "Skynet Online");
+
+        lcd.println(DriverStationLCD.Line.kUser1, 1, "Ratchet Online");
         lcd.updateLCD();
     }
 
@@ -210,175 +171,668 @@ public class MainCode extends IterativeRobot {
      */
     public void autonomousPeriodic() {//y                          //actual autonomous code
         getCypress();
-
+        
+        //System.out.println(rightEncoder.getDistance()+"    "+leftEncoder.getDistance());
+        
         if (autonomousMode == 1) {
-            if (runAuto) {
-                numShot = 0;
-                pickUpRollersTalon.set(0.5);
-                flywheelMotorTalon1.set(flySpeed1);
-                flywheelMotorTalon2.set(flySpeed1);
-                frisbeeFeed.set(false);
-                shooterPos.set(true);
-                autoTimer.delay(upDelay1);
-                while (numShot < 3) {
-                    frisbeeFeed.set(true);
-                    autoTimer.delay(retractDelay1);
-                    frisbeeFeed.set(false);
-                    autoTimer.delay(extendDelay1);
-                    numShot++;
-                }
-                numShot = 0;
-                autoTimer.delay(lastShootDelay1);
-                flywheelMotorTalon1.set(0.0);
-                flywheelMotorTalon2.set(0.0);
-                shooterPos.set(false);
+            if (firstRun) {
+                rightEncoder.setDistancePerPulse(0.09162978572970230278849376534565);
+                leftEncoder.setDistancePerPulse(0.09162978572970230278849376534565);
+                leftEncoder.setReverseDirection(false);
+                rightEncoder.setReverseDirection(false);
+                autoTimer.start();
+                fireTimer.start();
+                rightEncoder.reset();
+                leftEncoder.reset();
                 
-                runAuto = false;
-            } else {
-                drive.tankDrive(0.0, 0.0);
+            }
+            //System.out.println(fireTimer.get());
+            if (autoPos == 1) {
+                firstRun = false;
+                drive.tankDrive(0, 0);
+                shooterPos.set(true);
+                flywheelMotorTalon1.set(-0.875);
+                flywheelMotorTalon2.set(-0.875);
+
+                if ((autoTimer.get() > shooterUpTime) && (autoTimer.get() < shooterUpTime + shootTime)) {
+                    fire(frisbeeFeed, fireTimer, shootTime);
+                    System.out.println("First");
+                } else if ((autoTimer.get() > shooterUpTime + shootTime) && (autoTimer.get() < shooterUpTime + (shootTime * 2))) {
+                    fire(frisbeeFeed, fireTimer, shootTime);
+                    System.out.println("Second");
+                } else if ((autoTimer.get() > shooterUpTime + (shootTime * 2)) && (autoTimer.get() < shooterUpTime + (shootTime * 3))) {
+                    fire(frisbeeFeed, fireTimer, shootTime);
+                    System.out.println("Third");
+                } else if (autoTimer.get() > shooterUpTime + (shootTime * 3)) {
+                    shooterPos.set(false);
+                    flywheelMotorTalon1.set(0);
+                    flywheelMotorTalon2.set(0);
+                    autoTimer.reset();
+                    autoPos = 2;
+                }
+            } else if (autoPos == 2) {
+                System.out.println("Backing Up" + -rightEncoder.getDistance() + "  " + oldRightDist + "  " + leftEncoder.getDistance() + "  " + oldLeftDist);
+                straight(drive, Util.constrain(((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) + 5, 0, 20), leftEncoder, rightEncoder);
+                if ((((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) > 19)) {
+                    rightEncoder.reset();
+                    leftEncoder.reset();
+                    autoTimer.reset();
+                    autoPos = 3;
+                }
+            } else if (autoPos == 3) {
+                System.out.println("First Turn");
+                turnRightWheels(drive, 11, rightEncoder, oldRightDist);
+                System.out.println(-(rightEncoder.getDistance()));
+                if (-rightEncoder.getDistance() > 10) {
+                    rightEncoder.reset();
+                    leftEncoder.reset();
+                    autoTimer.reset();
+                    autoPos = 4;
+
+                }
+            } else if (autoPos == 4) {
+
+                System.out.println("Backing Up" + -rightEncoder.getDistance() + "  " + oldRightDist + "  " + leftEncoder.getDistance() + "  " + oldLeftDist);
+                straight(drive, Util.constrain(((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) + 9, 0, 50), leftEncoder, rightEncoder);
+                if ((((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) > 49)) {
+                    rightEncoder.reset();
+                    leftEncoder.reset();
+                    autoTimer.reset();
+                    autoPos = 5;
+                }
+            } else if (autoPos == 5) {
+                System.out.println("Turning Left   " + leftEncoder.getDistance());
+                turnLeftWheels(drive, 50, leftEncoder, oldLeftDist);
+                if (leftEncoder.getDistance() > 49.5) {
+                    rightEncoder.reset();
+                    leftEncoder.reset();
+                    autoTimer.reset();
+                    autoPos = 6;
+                }
+            } else if (autoPos == 6) {
+                System.out.println("Forward");
+                kickUpTalon.set(-1);
+                pickUpRollersTalon.set(-1);
+                ConveyorTalon.set(Util.constrain(-0.95, -1, 0));
+                straight(drive, Util.constrain(((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) - 9, -50, 0), leftEncoder, rightEncoder);
+                if (((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) < -49.5) {
+                    rightEncoder.reset();
+                    leftEncoder.reset();
+                    autoTimer.reset();
+                    autoPos = 7;
+                }
+
+            } else if (autoPos == 7) {
+                System.out.println("Forward 2   " + ((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2));
+                kickUpTalon.set(-1);
+                pickUpRollersTalon.set(-1);//div by 2.2
+                ConveyorTalon.set(Util.constrain(-0.95, -1, 0));
+                straight(drive, Util.constrain(((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) - 3, -40, 0), leftEncoder, rightEncoder);
+                if (((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) < -39) {
+                    rightEncoder.reset();
+                    leftEncoder.reset();
+                    autoTimer.reset();
+                    autoPos = 8;
+                }
+
+            } else if (autoPos == 8) {
+                System.out.println("Turn Right");
+                turnRightWheels(drive, 35, rightEncoder, oldRightDist);
+                System.out.println(-(rightEncoder.getDistance()));
+                if (-rightEncoder.getDistance() > 34) {
+                    rightEncoder.reset();
+                    leftEncoder.reset();
+                    autoTimer.reset();
+                    autoPos = 9;
+                }
+
+            } else if (autoPos == 9) {
+                System.out.println("Forward");
+                kickUpTalon.set(-1);
+                pickUpRollersTalon.set(-1);
+                ConveyorTalon.set(-0.95);
+                straight(drive, Util.constrain(((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) - 9, -50, 0), leftEncoder, rightEncoder);
+                if (((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) < -49.5) {
+                    rightEncoder.reset();
+                    leftEncoder.reset();
+                    autoTimer.reset();
+                    autoPos = 10;
+                }
+
+            } else if (autoPos == 10) {
+                if (secondFireFirstRun) {
+                    autoTimer.reset();
+                    secondFireFirstRun = false;
+                }
+                if ((autoTimer.get() > shooterUpTime) && (autoTimer.get() < shooterUpTime + shootTime)) {
+                    fire(frisbeeFeed, fireTimer, shootTime);
+                    System.out.println("First");
+                } else if ((autoTimer.get() > shooterUpTime + shootTime) && (autoTimer.get() < shooterUpTime + (shootTime * 2))) {
+                    fire(frisbeeFeed, fireTimer, shootTime);
+                    System.out.println("Second");
+                } else if ((autoTimer.get() > shooterUpTime + (shootTime * 2)) && (autoTimer.get() < shooterUpTime + (shootTime * 3))) {
+                    fire(frisbeeFeed, fireTimer, shootTime);
+                    System.out.println("Third");
+                } else if (autoTimer.get() > shooterUpTime + (shootTime * 3)) {
+                    shooterPos.set(false);
+                    flywheelMotorTalon1.set(0);
+                    flywheelMotorTalon2.set(0);
+                    autoTimer.reset();
+                    autoPos = 11;
+                }
+            } else if (autoPos == 11) {
+                drive.tankDrive(0, 0);
             }
 
-
-
+            oldRightDist = -rightEncoder.getDistance();
+            oldLeftDist = leftEncoder.getDistance();
 
         } else if (autonomousMode == 2) {
-            if (runAuto) {
-                numShot = 0;
-                pickUpRollersTalon.set(0.5);
-                flywheelMotorTalon1.set(flySpeed2);
-                flywheelMotorTalon2.set(flySpeed2);
-                frisbeeFeed.set(false);
-                shooterPos.set(true);
-                autoTimer.delay(upDelay2);
-                while (numShot < 3) {
-                    frisbeeFeed.set(true);
-                    autoTimer.delay(retractDelay2);
+            
+            //lcd.println(DriverStationLCD.Line.kMain6, 0, );
+            switch (autonomousStage) {                           //state machine using switch statements
+                case 0:
+                    if (true){//Util.absDif((leftEncoder.getDistance() + rightEncoder.getDistance()) / 2, 0.15) < 0.05) {
+                        leftEncoder.setReverseDirection(true);
+                        rightEncoder.setReverseDirection(false);
+                        
+                        leftEncoder.setDistancePerPulse(1 / 1000.0);
+                        rightEncoder.setDistancePerPulse(1 / 1000.0);
+                        
+                        flywheelMotorTalon1.set(-0.85);
+                        flywheelMotorTalon2.set(-0.85);
+                        shooterPos.set(true);
+                        drive.arcadeDrive(0.0, 0.0);
+                        autonomousStage = 1;
+                        autonomousTimer.reset();
+                        leftEncoder.reset();
+                        rightEncoder.reset();
+
+                    } else {
+
+                        //autonomousStage = 1;
+                        leftEncoder.setReverseDirection(true);
+                        rightEncoder.setReverseDirection(false);
+                        
+                        leftEncoder.setDistancePerPulse(1 / 1000.0);
+                        rightEncoder.setDistancePerPulse(1 / 1000.0);
+                        
+                        speed = (leftEncoder.getRate() + rightEncoder.getRate()) / 2;
+
+                        turnController.update(0.0, cumAngle);
+
+                        speedController.update(0.3, speed);
+
+                        turnSetPower = turnController.getOutput();
+                        driveSetPower += speedController.getOutput();
+
+                        if (turnSetPower >= 1.0) {
+                            turnSetPower = 1.0;
+                        } else if (turnSetPower <= -1.0) {
+                            turnSetPower = -1.0;
+                        }
+                        if (driveSetPower >= 1.0) {
+                            driveSetPower = 1.0;
+                        } else if (driveSetPower <= -1.0) {
+                            driveSetPower = -1.0;
+                        }
+
+                        drive.arcadeDrive(-driveSetPower, turnSetPower - 0.1);
+
+                        ConveyorTalon.set(-0.85);
+                        pickUpRollersTalon.set(1.0);
+                        kickUpTalon.set(1.0);
+                        shooterPos.set(true);
+                        flywheelMotorTalon1.set(-1.0);
+                        flywheelMotorTalon2.set(-1.0);
+
+                    }
+                    break;
+                case 1:
+                    if (autonomousTimer.get() > 1.5) {
+                        autonomousStage = 2;
+                        autonomousTimer.reset();
+                    }
+                    pickUpRollersTalon.set(-1.0);
+                    drive.tankDrive(0.0, 0.0);
+                    break;
+
+                case 2:                                         //shoot stuff
+                    if (autonomousTimer.get() > 2.4) {             //if we have fired three times, go on to next stage
+                        shooterPos.set(false);                  //bring shoooter down
+                        flywheelMotorTalon1.set(0.0);
+                        flywheelMotorTalon2.set(0.0);
+                        frisbeeFeed.set(false);
+
+                        autonomousStage = 3;
+                        autonomousTimer.reset();
+                    } else {
+                        speed = (leftEncoder.getRate() + rightEncoder.getRate()) / 2;
+
+                        turnController.update(0.0, cumAngle);
+
+                        speedController.update(0.0, speed);
+
+                        turnSetPower = turnController.getOutput();
+                        driveSetPower += speedController.getOutput();
+
+                        if (turnSetPower >= 1.0) {
+                            turnSetPower = 1.0;
+                        } else if (turnSetPower <= -1.0) {
+                            turnSetPower = -1.0;
+                        }
+                        if (driveSetPower >= 1.0) {
+                            driveSetPower = 1.0;
+                        } else if (driveSetPower <= -1.0) {
+                            driveSetPower = -1.0;
+                        }
+
+                        drive.arcadeDrive(-driveSetPower, turnSetPower );
+                        if(autonomousTimer.get() >0.3){
+                        flywheelMotorTalon1.set(-0.9);          //start the flywheel
+                        flywheelMotorTalon2.set(-0.9);
+                        }
+                        else{
+                            flywheelMotorTalon1.set(-0.7);          //start the flywheel
+                            flywheelMotorTalon2.set(-0.7);
+                        }
+                        pickUpRollersTalon.set(-1.0);
+                        shooterPos.set(true);                   ///bring shooter up
+                        if (autonomousTimer.get() % 0.8 > 0.4) {    //use modulus to alternate between in and out for feeding piston.
+                            frisbeeFeed.set(false);
+                        } else {
+                            frisbeeFeed.set(true);
+                        }
+                    }
+                    break;
+                case 3:
+                    if (Util.absDif((leftEncoder.getDistance() + rightEncoder.getDistance()) / 1.0, 2.0) < 0.1) {
+                        drive.arcadeDrive(0.0, 0.0);
+                        autonomousStage = 4;
+                        autonomousTimer.reset();
+                    } else {
+
+
+                        speed = (leftEncoder.getRate() + rightEncoder.getRate()) / 2;
+
+                        turnController.update(0.0, cumAngle);
+
+                        speedController.update(0.3, speed);
+
+                        turnSetPower = turnController.getOutput();
+                        driveSetPower += speedController.getOutput();
+
+                        if (turnSetPower >= 1.0) {
+                            turnSetPower = 1.0;
+                        } else if (turnSetPower <= -1.0) {
+                            turnSetPower = -1.0;
+                        }
+                        if (driveSetPower >= 1.0) {
+                            driveSetPower = 1.0;
+                        } else if (driveSetPower <= -1.0) {
+                            driveSetPower = -1.0;
+                        }
+
+                        drive.arcadeDrive(-driveSetPower, turnSetPower);
+
+                        ConveyorTalon.set(-0.85);
+                        pickUpRollersTalon.set(-1.0);
+                        kickUpTalon.set(1.0);
+                        shooterPos.set(false);
+                        flywheelMotorTalon1.set(0.0);
+                        flywheelMotorTalon2.set(0.0);
+
+                    }
+                    break;
+                case 4:
+                    if (autonomousTimer.get() > 1.8) {
+                        autonomousStage = 5;
+                        autonomousTimer.reset();
+                    }
+                    break;
+                case 5:
+                    if (Util.absDif((leftEncoder.getDistance() + rightEncoder.getDistance()) / 2.2, 0) < 0.1) {
+                        drive.arcadeDrive(0.0, 0.0); 
+
+                        flywheelMotorTalon1.set(-1.0);
+                        flywheelMotorTalon2.set(-1.0);
+
+                        ConveyorTalon.set(0.0);
+                        pickUpRollersTalon.set(0.0);
+                        kickUpTalon.set(0.0);
+                        autonomousStage = 6;
+                        autonomousTimer.reset();
+                    } else {
+
+                        flywheelMotorTalon1.set(0.0);
+                        flywheelMotorTalon2.set(0.0);
+
+                        speed = (leftEncoder.getRate() + rightEncoder.getRate()) / 2;
+
+                        turnController.update(0.0, cumAngle );
+
+                        speedController.update(-0.4, speed);
+
+                        turnSetPower = turnController.getOutput();
+                        driveSetPower += speedController.getOutput();
+
+                        if (turnSetPower >= 1.0) {
+                            turnSetPower = 1.0;
+                        } else if (turnSetPower <= -1.0) {
+                            turnSetPower = -1.0;
+                        }
+                        if (driveSetPower >= 1.0) {
+                            driveSetPower = 1.0;
+                        } else if (driveSetPower <= -1.0) {
+                            driveSetPower = -1.0;
+                        }
+
+                        drive.arcadeDrive(-driveSetPower, turnSetPower);
+                        System.out.println(driveSetPower);
+
+                        ConveyorTalon.set(-0.85);
+                        pickUpRollersTalon.set(-1.0);
+                        kickUpTalon.set(1.0);
+                    }
+                    break;
+                case 6:
+                    if (autonomousTimer.get() > 1.6) {           //bring shooter up. shooter wheel up to speed.
+                        drive.arcadeDrive(0.0, 0.0);
+                        flywheelMotorTalon1.set(-1.0);
+                        flywheelMotorTalon2.set(-1.0);
+
+                        autonomousStage = 7;
+                        autonomousTimer.reset();
+                    } else {
+                        speed = (leftEncoder.getRate() + rightEncoder.getRate()) / 2;
+
+                        turnController.update(0.0, cumAngle);
+
+                        speedController.update(0.0, speed);
+
+                        turnSetPower = turnController.getOutput();
+                        driveSetPower += speedController.getOutput();
+
+                        if (turnSetPower >= 1.0) {
+                            turnSetPower = 1.0;
+                        } else if (turnSetPower <= -1.0) {
+                            turnSetPower = -1.0;
+                        }
+                        if (driveSetPower >= 1.0) {
+                            driveSetPower = 1.0;
+                        } else if (driveSetPower <= -1.0) {
+                            driveSetPower = -1.0;
+                        }
+
+                        drive.arcadeDrive(-driveSetPower, turnSetPower-0.1);
+                        shooterPos.set(true);
+                        flywheelMotorTalon1.set(-0.9);
+                        flywheelMotorTalon2.set(-0.9);
+                    }
+                    break;
+                case 7:
+                    if (autonomousTimer.get() > 3.2) {             //if we have fired four times, go on to next stage
+                        flywheelMotorTalon1.set(0.0);
+                        flywheelMotorTalon2.set(0.0);
+                        frisbeeFeed.set(false);
+                        autonomousStage = 8;
+                        autonomousTimer.reset();
+                    } else {
+                        speed = (leftEncoder.getRate() + rightEncoder.getRate()) / 2;
+
+                        turnController.update(0.0, cumAngle);
+
+                        speedController.update(0.0, speed);
+
+                        turnSetPower = turnController.getOutput();
+                        driveSetPower += speedController.getOutput();
+
+                        if (turnSetPower >= 1.0) {
+                            turnSetPower = 1.0;
+                        } else if (turnSetPower <= -1.0) {
+                            turnSetPower = -1.0;
+                        }
+                        if (driveSetPower >= 1.0) {
+                            driveSetPower = 1.0;
+                        } else if (driveSetPower <= -1.0) {
+                            driveSetPower = -1.0;
+                        }
+
+                        drive.arcadeDrive(-driveSetPower, turnSetPower - 0.05);
+
+                        shooterPos.set(true);
+                        flywheelMotorTalon1.set(-1.0);          //start the flywheel
+                        flywheelMotorTalon2.set(-1.0);
+                        if (autonomousTimer.get() % 0.8 > 0.4) {    //use modulus to alternate between in and out for feeding piston.
+                            frisbeeFeed.set(false);
+                        } else {
+                            frisbeeFeed.set(true);
+                        }
+                    }
+                    break;
+                case 9:
+                    drive.arcadeDrive(-1.0, 0.0);
+                    shooterPos.set(false);
+                    autonomousStage = 10;
+
+                default:
+                    drive.arcadeDrive(0.0, 0.0);
+                    flywheelMotorTalon1.set(0.0);
+                    flywheelMotorTalon2.set(0.0);
+                    shooterPos.set(true);
                     frisbeeFeed.set(false);
-                    autoTimer.delay(extendDelay2);
-                    numShot++;
-                }
-                numShot = 0;
-                autoTimer.delay(lastShootDelay2);
-                flywheelMotorTalon1.set(0.0);
-                flywheelMotorTalon2.set(0.0);
-                shooterPos.set(false);
-                kickUpTalon.set(1);
-                pickUpRollersTalon.set(-0.45);
-                ConveyorTalon.set(-0.95);
-                autoTimer.reset();
-                while (autoTimer.get() < 0.5) {
-                    drive.tankDrive(-forwardSpeed2, -forwardSpeed2*0.9);
-                }
-                while (autoTimer.get() < forwardDelay2) {
-                    drive.tankDrive(-forwardSpeed2, -forwardSpeed2*0.925);
-                }
-                autoTimer.reset();
-                /*while(autoTimer.get()<0.1){
-                    drive.tankDrive(1,0.9);
-                    
-                }*/
-                autoTimer.reset();
+                    System.out.println("Yo case is messed up dawg!");
+                    break;
+            }
+        } else if (autonomousMode == 3) {
+            if (firstRun) {
+                rightEncoder.setDistancePerPulse(0.09162978572970230278849376534565);
+                leftEncoder.setDistancePerPulse(0.09162978572970230278849376534565);
+                leftEncoder.setReverseDirection(false);
+                rightEncoder.setReverseDirection(false);
+                autoTimer.start();
+                fireTimer.start();
+                rightEncoder.reset();
+                leftEncoder.reset();
                 
+            }
+            //System.out.println(fireTimer.get());
+            if (autoPos == 1) {
+                firstRun = false;
+                pickUpRollersTalon.set(1);
                 drive.tankDrive(0, 0);
-                autoTimer.delay(conveyorUpDelay2);
-
-
-                pickUpRollersTalon.set(1.0);
-                autoTimer.reset();
-                while (autoTimer.get() < backDelay2) {
-                    drive.tankDrive(backSpeed2, backSpeed2*0.875);
-                }
-                autoTimer.reset();
-                /*while (autoTimer.get() < 0.1) {
-                    drive.tankDrive(-1, -0.9);
-                }*/
-                drive.tankDrive(0.0, 0.0);
-                kickUpTalon.set(0.0);
-                pickUpRollersTalon.set(0.0);
-                ConveyorTalon.set(0.0);
-
-                flywheelMotorTalon1.set(flySpeed2);
-                flywheelMotorTalon2.set(flySpeed2);
-                frisbeeFeed.set(false);
                 shooterPos.set(true);
-                autoTimer.delay(upDelay2);
-                while (numShot < 4) {
-                    frisbeeFeed.set(true);
-                    autoTimer.delay(retractDelay2);
-                    frisbeeFeed.set(false);
-                    autoTimer.delay(extendDelay2);
-                    numShot++;
+                flywheelMotorTalon1.set(-0.875);
+                flywheelMotorTalon2.set(-0.875);
+
+                if ((autoTimer.get() > shooterUpTime) && (autoTimer.get() < shooterUpTime + shootTime)) {
+                    fire(frisbeeFeed, fireTimer, shootTime);
+                    System.out.println("First");
+                } else if ((autoTimer.get() > shooterUpTime + shootTime) && (autoTimer.get() < shooterUpTime + (shootTime * 2))) {
+                    fire(frisbeeFeed, fireTimer, shootTime);
+                    System.out.println("Second");
+                } else if ((autoTimer.get() > shooterUpTime + (shootTime * 2)) && (autoTimer.get() < shooterUpTime + (shootTime * 3))) {
+                    fire(frisbeeFeed, fireTimer, shootTime);
+                    System.out.println("Third");
+                } else if (autoTimer.get() > shooterUpTime + (shootTime * 3)) {
+                    shooterPos.set(false);
+                    flywheelMotorTalon1.set(0);
+                    flywheelMotorTalon2.set(0);
+                    autoTimer.reset();
+                    autoPos = 2;
                 }
-                numShot = 0;
-                runAuto = false;
-            } else {
-                drive.tankDrive(0.0, 0.0);
+            } else if (autoPos == 2) {
+                System.out.println("Backing Up" + -rightEncoder.getDistance() + "  " + oldRightDist + "  " + leftEncoder.getDistance() + "  " + oldLeftDist);
+                straight(drive, Util.constrain(((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) + 5, 0, 32), leftEncoder, rightEncoder);
+                if ((((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) > 31.5)) {
+                    rightEncoder.reset();
+                    leftEncoder.reset();
+                    autoTimer.reset();
+                    autoPos = 3;
+                }
+            } else if (autoPos == 3) {
+                System.out.println("First Turn");
+                turnRightWheels(drive, 16, rightEncoder, oldRightDist);
+                System.out.println(-(rightEncoder.getDistance()));
+                if (-rightEncoder.getDistance() > 15) {
+                    rightEncoder.reset();
+                    leftEncoder.reset();
+                    autoTimer.reset();
+                    autoPos = 4;
+
+                }
+            } else if (autoPos == 4) {
+
+                System.out.println("Backing Up" + -rightEncoder.getDistance() + "  " + oldRightDist + "  " + leftEncoder.getDistance() + "  " + oldLeftDist);
+                straight(drive, Util.constrain(((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) + 9, 0, 50), leftEncoder, rightEncoder);
+                if ((((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) > 49)) {
+                    rightEncoder.reset();
+                    leftEncoder.reset();
+                    autoTimer.reset();
+                    autoPos = 5;
+                }
+            } else if (autoPos == 5) {
+                System.out.println("Turning Left   " + leftEncoder.getDistance());
+                turnLeftWheels(drive, 55, leftEncoder, oldLeftDist);
+                if (leftEncoder.getDistance() > 54.5) {
+                    rightEncoder.reset();
+                    leftEncoder.reset();
+                    autoTimer.reset();
+                    autoPos = 6;
+                }
+            } else if (autoPos == 6) {
+                System.out.println("Forward");
+                kickUpTalon.set(1);
+                pickUpRollersTalon.set(-1);
+                ConveyorTalon.set(Util.constrain(-0.95, -1, 0));
+                straight(drive, Util.constrain(((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) - 7.5, -50, 0), leftEncoder, rightEncoder);
+                if (((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) < -49.5) {
+                    rightEncoder.reset();
+                    leftEncoder.reset();
+                    autoTimer.reset();
+                    autoPos = 7;
+                }
+
+            } else if (autoPos == 7) {
+                System.out.println("Forward 2   " + ((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2));
+                kickUpTalon.set(1);
+                pickUpRollersTalon.set(-1);//div by 2.2
+                ConveyorTalon.set(Util.constrain(-0.95, -1, 0));
+                straight(drive, Util.constrain(((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) - 2.5, -40, 0), leftEncoder, rightEncoder);
+                if (((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) < -39) {
+                    rightEncoder.reset();
+                    leftEncoder.reset();
+                    autoTimer.reset();
+                    autoPos = 11;
+                }
+
+            }/* else if (autoPos == 8) {
+                System.out.println("Back");
+                straight(drive, Util.constrain(((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) + 5, 100, 0), leftEncoder, rightEncoder);
+                if (((-rightEncoder.getDistance() + leftEncoder.getDistance()) / 2) > 99) {
+                    rightEncoder.reset();
+                    leftEncoder.reset();
+                    autoTimer.reset();
+                    autoPos = 9;
+                }
+
+            } else if (autoPos == 9) {
+                System.out.println("Turn Right");
+                turnRightWheels(drive, 35, rightEncoder, oldRightDist);
+                System.out.println(-(rightEncoder.getDistance()));
+                if (-rightEncoder.getDistance() > 34) {
+                    rightEncoder.reset();
+                    leftEncoder.reset();
+                    autoTimer.reset();
+                    autoPos = 10;
+                }
+
+            } else if (autoPos == 10) {
+                if (secondFireFirstRun) {
+                    autoTimer.reset();
+                    secondFireFirstRun = false;
+                }
+                if ((autoTimer.get() > shooterUpTime) && (autoTimer.get() < shooterUpTime + shootTime)) {
+                    fire(frisbeeFeed, fireTimer, shootTime);
+                    System.out.println("First");
+                } else if ((autoTimer.get() > shooterUpTime + shootTime) && (autoTimer.get() < shooterUpTime + (shootTime * 2))) {
+                    fire(frisbeeFeed, fireTimer, shootTime);
+                    System.out.println("Second");
+                } else if ((autoTimer.get() > shooterUpTime + (shootTime * 2)) && (autoTimer.get() < shooterUpTime + (shootTime * 3))) {
+                    fire(frisbeeFeed, fireTimer, shootTime);
+                    System.out.println("Third");
+                } else if (autoTimer.get() > shooterUpTime + (shootTime * 3)) {
+                    shooterPos.set(false);
+                    flywheelMotorTalon1.set(0);
+                    flywheelMotorTalon2.set(0);
+                    autoTimer.reset();
+                    autoPos = 11;
+                }
+            }*/ else if (autoPos == 11) {
+                drive.tankDrive(0, 0);
             }
 
-        } else if (autonomousMode == 3) {
-            if (runAuto) {
-                flywheelMotorTalon1.set(flySpeed3);
-                flywheelMotorTalon2.set(flySpeed3);
-                pickUpRollersTalon.set(0.5);
+            oldRightDist = -rightEncoder.getDistance();
+            oldLeftDist = leftEncoder.getDistance();
+        } else if (autonomousMode == 4) {
+            if (firstRun) {
+                rightEncoder.setDistancePerPulse(0.09162978572970230278849376534565);
+                leftEncoder.setDistancePerPulse(0.09162978572970230278849376534565);
+                leftEncoder.setReverseDirection(false);
+                rightEncoder.setReverseDirection(false);
+                autoTimer.start();
+                fireTimer.start();
+                rightEncoder.reset();
+                leftEncoder.reset();
+                
+            }
+            //System.out.println(fireTimer.get());
+            if (autoPos == 1) {
+                firstRun = false;
+                drive.tankDrive(0, 0);
                 shooterPos.set(true);
-                frisbeeFeed.set(false);
-                autoTimer.delay(upDelay3);
-                while (numShot < 3) {
-                    frisbeeFeed.set(true);
-                    autoTimer.delay(retractDelay3);
-                    frisbeeFeed.set(false);
-                    autoTimer.delay(extendDelay3);
-                    numShot++;
+                flywheelMotorTalon1.set(-0.875);
+                flywheelMotorTalon2.set(-0.875);
+
+                if ((autoTimer.get() > shooterUpTime) && (autoTimer.get() < shooterUpTime + shootTime)) {
+                    fire(frisbeeFeed, fireTimer, shootTime);
+                    System.out.println("First");
+                } else if ((autoTimer.get() > shooterUpTime + shootTime) && (autoTimer.get() < shooterUpTime + (shootTime * 2))) {
+                    fire(frisbeeFeed, fireTimer, shootTime);
+                    System.out.println("Second");
+                } else if ((autoTimer.get() > shooterUpTime + (shootTime * 2)) && (autoTimer.get() < shooterUpTime + (shootTime * 3))) {
+                    fire(frisbeeFeed, fireTimer, shootTime);
+                    System.out.println("Third");
+                } else if (autoTimer.get() > shooterUpTime + (shootTime * 3)) {
+                    shooterPos.set(false);
+                    flywheelMotorTalon1.set(0);
+                    flywheelMotorTalon2.set(0);
+                    autoTimer.reset();
+                    autoPos = 2;
                 }
-                autoTimer.delay(lastShootDelay3);
-                flywheelMotorTalon1.set(0.0);
-                flywheelMotorTalon2.set(0.0);
-                shooterPos.set(false);
-                
-                
-                autoTimer.reset();
-                while(autoTimer.get()<backDelay3){
-                    drive.tankDrive(backSpeed3, backSpeed3);
-                }
-                autoTimer.reset();
-                while(autoTimer.get()<secondTurnDelay3){
-                    drive.tankDrive(secondTurnSpeed3, -secondTurnSpeed3);
-                }
-                runAuto = false;
-            } else {
-                drive.tankDrive(0.0, 0.0);
+            }else if(autoPos == 2){
+              drive.tankDrive(0,0);  
+            
             }
         }
     }
 
-    /**
-     * This function is called periodically during operator control
-     */
     public void teleopPeriodic() {
+        //System.out.println(rightEncoder.getDistance()+"    "+leftEncoder.getDistance());
+        autonomousStage = 0;
+        autonomousTimer.reset();
+        leftEncoder.reset();
+        rightEncoder.reset();
+        firstRun = true;
+        autoPos = 0;
+        rightEncoder.reset();
+        leftEncoder.reset();
 
-        runAuto = true;
-        runOnce = true;
-        try {
-            cypress.getDigital(1);
-            getCypress();
-        } catch (DriverStationEnhancedIO.EnhancedIOException ex) {
-            //getController();
-        }
 
-
-        //climb
+        getCypress();
+        //getController();
         firstClimb.set(firstClimbEnable);
-        /*if ((secondClimbEnable) && (thirdClimbEnable)) {
-         secondThirdRelease.setDirection(Relay.Direction.kBoth);
-         } else if (secondClimbEnable) {
-         secondThirdRelease.setDirection(Relay.Direction.kForward);
-         } else if (thirdClimbEnable) {
-         secondThirdRelease.setDirection(Relay.Direction.kReverse);
-         } else {
-         secondThirdRelease.set(Relay.Value.kOff);
-         }*/
 
-        //standard shooter data
         if (shooterEnable) {
             flywheelMotorTalon1.set(-flyWheelSetSpeed);
             flywheelMotorTalon2.set(-flyWheelSetSpeed);
@@ -388,57 +842,53 @@ public class MainCode extends IterativeRobot {
         }
 
         //PTO Data
-        gearBoxWinchLeft.set(false);
-        gearBoxDriveRight.set(true); // fix this- move the dependencies to the ptoclimb vars
-        gearBoxDriveLeft.set(true);
-        gearBoxWinchRight.set(false);
+        gearBoxWinchLeft.set(true);
+        gearBoxDriveRight.set(false); // fix this- move the dependencies to the ptoclimb vars
+        gearBoxDriveLeft.set(false);
+        gearBoxWinchRight.set(true);
 
         shooterPos.set(shooterPosUp);
 
         kickUpTalon.set(-frontRollerSpeed);
-        pickUpRollersTalon.set(frontRollerSpeed / 2.2);
+        pickUpRollersTalon.set(frontRollerSpeed);//div by 2.2
         ConveyorTalon.set(Util.constrain(conveyorMotorVal, -1, 0));
 
-        if (autoAimEnable) {
-            autoAim();
-        } else if (!autoAimEnable){
-            if (fastTurn) {
+if (fastTurn) {
 
-                rightDriveVal = Util.signOf(throttle) * turnRate * -4;
-                leftDriveVal = Util.signOf(throttle) * turnRate * 4;
-                
-            } else {
-                if (throttle >= 0) {
-                    rightDriveVal = (0.9*throttle) + ((-1 * (turnRate * (1.2 - throttle))) / 1.5);//1.5 for practice all div factor
-                    leftDriveVal = throttle + ((turnRate * (1.2 - throttle)) / 1.5);
-                    } else {
-                    rightDriveVal = (0.9*throttle) + (((turnRate * (1.2 + (throttle)))) / 1.5);
-                    leftDriveVal = throttle + ((-1 * (turnRate * (1.2 + (throttle)))) / 1.5);
-                }
+            rightDriveVal = Util.signOf(throttle) * turnRate * -4;
+            leftDriveVal = Util.signOf(throttle) * turnRate * 4;
+
+        } else {
+            if (throttle >= 0) {
+                rightDriveVal = (throttle) + ((-1 * (turnRate * (1.15 - throttle))) / 1.3);
+                leftDriveVal = throttle + ((turnRate * (1.15 - throttle)) / 1.3);
+            } else {//switch left and right driveval around if want like a car
+                leftDriveVal = (throttle) + (((turnRate * (1.15 + (throttle)))) / 1.3);
+                rightDriveVal = (throttle) + ((-1 * (turnRate * (1.15 + (throttle)))) / 1.3);
             }
-            drive.tankDrive(-leftDriveVal, -rightDriveVal);
         }
-        /*else{
-         leftDrive = levelTwoWinch;
-         rightDrive = levelThreeWinch;
-         drive.tankDrive(leftDrive, rightDrive);
-         }*/
+        rightDriveSetVal = Util.smooth(rightDriveVal, rightDriveSetVal, 2);
+        leftDriveSetVal = Util.smooth(leftDriveVal, leftDriveSetVal, 2);
+        drive.tankDrive(-leftDriveSetVal, -rightDriveSetVal);
+        if ((fire)&&(shooterPos.get())) {
 
-        //frisbee loading
-        if ((!loading) && frisbeeLoad && (shooterPosUp)) {//prevent things from happening if pressed with not enough deleay
+            if (fireTimer.get() < 0.4) {
+                frisbeeFeed.set(true);
+            }
+            if (fireTimer.get() > 0.4) {
+                frisbeeFeed.set(false);
+            }
+            if (fireTimer.get() > shootTime) {
+                fireTimer.reset();
+            }
 
-            frisbeeFeed.set(true);
-            loadPos = 1;
-            loading = true;
-
-        } else if ((loadPos >= 15) && loading) {
-            frisbeeFeed.set(false);
-            loadPos = 0;
-            loading = false;
-
-        } else if (loading) {
-            loadPos++;
-
+        } else {
+            if ((oldFire) && frisbeeFeed.get()) {
+                fireTimer.reset();
+                frisbeeFeed.set(true);
+            } else if (fireTimer.get() > 0.2) {
+                frisbeeFeed.set(false);
+            }
         }
 
 
@@ -448,109 +898,143 @@ public class MainCode extends IterativeRobot {
             }
         } catch (DriverStationEnhancedIO.EnhancedIOException ex) {
             for (int i = 1; i < 13; i++) {
-                oldButtons[i] = controller.getRawButton(i);
+                oldButtons[i] = controller2.getRawButton(i);
             }
         }
 
-
+        oldFire = fire;
     }
 
-    /**
-     * This function is called periodically during test mode
-     */
     public void testPeriodic() {
-    }
-    
-    private double getDistance() {
-        return (102.4) * distanceSensor.getVoltage();
-    }
-
-    private void autoAim() {
-//        normalizedCenterX = dash.getNumber("CenterX", 160) / 320;
-//        visionPID.setConstants(1.0, 0.0, 0.0);
-//        visionPID.update(0.5, normalizedCenterX);
-//        
-//        if(visionPID.getOutput() <0.51 & visionPID.getOutput() >0.49){
-//        lcd.println(DriverStationLCD.Line.kUser1, 1, "vision centered");
-//        }
-//        drive.arcadeDrive(0.0, visionPID.getOutput());
-
-        normalizedCenterX = dash.getNumber("CenterX", 0) / 320;
-        if (normalizedCenterX > 0.57) {
-            leftDriveVal = (Util.slowDown(0.485, normalizedCenterX, 4.75)) - 0.575;
-            rightDriveVal = -1 * leftDriveVal;
-            doneAiming = false;
-        } else if (normalizedCenterX < 0.43) {
-            leftDriveVal = Util.slowDown(0.515, normalizedCenterX, 4.75) + 0.575;
-            rightDriveVal = -1 * leftDriveVal;
-            doneAiming = false;
-        } else {
-            leftDriveVal = 0.0;
-            rightDriveVal = 0.0;
-            if (Util.absDif(normalizedCenterX, oldX) < 0.00000000001) {
-                doneAiming = true;
-
-            }
-            //System.out.println(doneAiming);
-            oldX = normalizedCenterX;
-        }
-        System.out.println(autoAimEnable + "   " + leftDriveVal + "   " + rightDriveVal + "    " + normalizedCenterX);
-        drive.tankDrive(leftDriveVal, rightDriveVal);
     }
 
     public void getController() {
-        throttle = controller.getRawAxis(2);
-        //turnRate = controller.getRawAxis(4);
-        if (controller.getRawButton(2) && !oldButtons[2] && (flyWheelSetSpeed >= 0.1)) {
+        leftDrive = controller2.getRawAxis(2);
+        rightDrive = controller2.getRawAxis(4);
+        if (controller2.getRawButton(2) && !oldButtons[2] && (flyWheelSetSpeed >= 0.1)) {
+            flyWheelSetSpeed -= 0.1;
+        }
+        if (controller2.getRawButton(3) && !oldButtons[3] && (flyWheelSetSpeed <= 1)) {
             flyWheelSetSpeed += 0.1;
         }
-        if (controller.getRawButton(3) && !oldButtons[3] && (flyWheelSetSpeed <= 1)) {
-            flyWheelSetSpeed += 0.1;
-        }
-
         //conveyor: 6 and 8 control speed up/down, 5 controlls overall enable
 
-        conveyorMotorVal = (controller.getRawButton(5)) ? 0.85 : 0;
+        conveyorMotorVal = (controller2.getRawButton(5)) ? -1 : 0;//-0.85
 
         //front roller speed on off with 5 and 7 (default 0)
-        frontRollerSpeed = controller.getRawButton(5) ? 1 : (controller.getRawButton(7) ? -1 : 0);
+        frontRollerSpeed = controller2.getRawButton(5) ? -1 : (controller2.getRawButton(7) ? 1 : 0);
 
-        frisbeeLoad = ((controller.getRawButton(1) && !oldButtons[1]));
-        firstClimbEnable = controller.getRawButton(12);
-        autoAimEnable = controller.getRawButton(10);
+        firstClimbEnable = (controller2.getRawButton(10) && (!oldButtons[10])) ? !firstClimbEnable : firstClimbEnable;
 
-        //secondClimbEnable = controller.getRawButton(6);
-        //thirdClimbEnable = controller.getRawButton(7);
-
-
-        //shooterposition controlled by button 4 - sets to opposite.
-        shooterPosUp = (controller.getRawButton(4) && (!oldButtons[4])) ? !shooterPosUp : shooterPosUp;
-        //secondClimb = controller.getRawButton(6);
-        //thirdClimb = controller.getRawButton(7);
-        if (controller.getRawButton(9) && !oldButtons[9]) {
-            PTOPosition = !PTOPosition;
+        shooterPosUp = (controller2.getRawButton(4) && (!oldButtons[4])) ? !shooterPosUp : shooterPosUp;
+        shooterEnable = (controller2.getRawButton(4) && (!oldButtons[4])) ? !shooterEnable : shooterEnable;
+        
+        fire = controller2.getRawButton(6);
+        
         }
-        //shooterEnable = controller.getRawButton(11);
-        firstClimbEnable = controller.getRawButton(12);
+
+    public void fire(Solenoid piston, Timer fireTimer, double totalTime) {
+        if (fireTimer.get() < 0.2) {
+            frisbeeFeed.set(true);
+        }
+        if (fireTimer.get() > 0.2) {
+            frisbeeFeed.set(false);
+        }
+        if (fireTimer.get() > totalTime) {
+            fireTimer.reset();
+        }
+        System.out.println(fireTimer.get());
     }
 
-    public void getCypress() {//y
+    public void straight(RobotDrive drive, double setDist, Encoder left, Encoder right) {
+
+        double rightDist = -right.getDistance();
+        double leftDist = left.getDistance();
+        double driveError = rightDist - leftDist;
+        double slowDownDist = 15;
+        double oldRightEncoder = 0;
+        double oldLeftEncoder = 0;
+        double rightBoost = 1;
+        double leftBoost = 1;
+        //drive.tankDrive(Util.constrain((Util.slowDown(setDist, left.getDistance(),2)/5),-1,1),Util.constrain((Util.slowDown(setDist, -right.getDistance(), 2)/5),-1,1));
+        //System.out.println(right.getDistance()+"   "+Util.seperatedConstrain((Util.slowDown(setDist, left.getDistance(),2)/5),-1.0,1.0,-0.05,0.05,0)+"   "+left.getDistance()+"   "+Util.seperatedConstrain((Util.slowDown(setDist, -right.getDistance(),2)/5),-1.0,1.0,-0.5,0.5,0));
+        //System.out.println((Util.seperatedConstrain((Util.slowDown(setDist+(driveError), leftDist,2)/slowDownDist),-1.0,1.0,-0.1,0.1,0)*leftBoost)+"   "+((Util.seperatedConstrain((Util.slowDown(setDist-(driveError), rightDist,2)/slowDownDist),-1.0,1.0,-0.1,0.1,0))*rightBoost));
+        if ((Util.abs((oldRightEncoder - rightDist)) > 0.00005) && (rightDist < 0.1)) {
+            rightBoost = 1;
+        } else {
+            rightBoost = 1;
+        }
+        if ((Util.abs((oldLeftEncoder - leftDist)) > 0.00005) && (leftDist < 0.1)) {
+            leftBoost = 1;
+        } else {
+            leftBoost = 1;
+        }
+        //System.out.println(leftDist+"   "+(rightDist));
+        //drive.tankDrive((Util.constrain((Util.slowDown(setDist+(driveError/5), leftDist,2)/slowDownDist),-1.0,1.0)*leftBoost),((Util.constrain((Util.slowDown(setDist-(driveError/5), rightDist,2)/slowDownDist),-1.0,1.0))*rightBoost));
+        drive.tankDrive(Util.seperatedConstrain((Util.slowDown(setDist + (driveError / 2), leftDist, 2) / 2), -0.65, 0.65, -0.1, 0.1, 0), Util.seperatedConstrain((Util.slowDown(setDist - (driveError / 5), -right.getDistance(), 2) / 5), -0.65, 0.65, -0.1, 0.1, 0));
+        oldRightEncoder = rightDist;
+        oldLeftEncoder = leftDist;
+
+    }
+
+    public void turnRightWheels(RobotDrive drive, double setDist, Encoder right, double oldRightEncoder) {
+        double rightDist = -right.getDistance();
+        double driveError = rightDist - setDist;
+        double slowDownDist = 10;
+
+        double rightBoost = 1;
+        //System.out.println((Util.absDif(oldRightEncoder, rightDist))+"  "+rightDist+"   "+ oldRightEncoder);
+        if ((Util.absDif(oldRightEncoder, rightDist) < 0.0005) && (driveError < 3)) {
+            rightBoost = 5;
+            //System.out.println("Boosting");
+        } else {
+            rightBoost = 1;
+        }
+        //System.out.println((rightDist));
+        drive.tankDrive(0, Util.seperatedConstrain((Util.slowDown(setDist - (driveError), -right.getDistance(), 2) / slowDownDist) * rightBoost, -1, 1, -0.2, 0.2, 0));
+        //System.out.println(Util.constrain((Util.slowDown(setDist-(driveError), -right.getDistance(), 2)/slowDownDist),-0.8,0.8));
+        //drive.tankDrive(Util.constrain((Util.slowDown(setDist+(driveError/5), left.getDistance(),2)/5),-1,1), Util.constrain((Util.slowDown(setDist-(driveError/5), -right.getDistance(), 2)/5),-1,1));
+
+
+
+    }
+
+    public void turnLeftWheels(RobotDrive drive, double setDist, Encoder left, double oldLeftEncoder) {
+
+        double leftDist = left.getDistance();
+        double driveError = setDist - leftDist;
+        double slowDownDist = 10;
+        //System.out.println((Util.absDif(oldLeftEncoder, leftDist))+"  "+leftDist+"   "+ oldLeftEncoder);
+        double leftBoost = 1;
+        if ((Util.abs((oldLeftEncoder - leftDist)) < 0.0005) && (driveError < 3)) {
+            leftBoost = 7;
+            //System.out.println("Boosting");
+        } else {
+            leftBoost = 1;
+        }
+        //System.out.println(Util.slowDown(setDist+(driveError/2), leftDist,2)+"   "+leftDist+"   "+driveError);
+        drive.tankDrive(Util.seperatedConstrain((Util.slowDown(setDist + (driveError / 2), leftDist, 2) / slowDownDist) * leftBoost, -1, 1, -0.2, 0.2, 0), 0);
+        //drive.tankDrive(Util.constrain((Util.slowDown(setDist+(driveError/5), left.getDistance(),2)/5),-1,1), Util.constrain((Util.slowDown(setDist-(driveError/5), -right.getDistance(), 2)/5),-1,1));
+        //oldLeftEncoder = leftDist;
+    }
+
+    public void getCypress() {
         try {
             autonomousMode = 2 + Util.rocker(cypress.getAnalogIn(4), 1.0);            // x axis of joystick = 3;
-
+            autonomousMode = 2;
         } catch (DriverStationEnhancedIO.EnhancedIOException ex) {
             throttle = 0;
             System.out.println("Auto Choose error");
         }
         try {
-            throttle = Util.deadZone(Util.map(cypress.getAnalogIn(1), 0, 3.3, 1, -1), -0.15, 0.02);//-0.1 lower band if no work
-
+            throttle = Util.smoothDeadZone(Util.map(cypress.getAnalogIn(1), 0, 3.3, 1, -1), -0.15, 0.02, -1, 1, 0);//-0.1 lower band if no work
+            //throttle = Util.map(cypress.getAnalogIn(1), 0, 3.3, 1, -1);
         } catch (DriverStationEnhancedIO.EnhancedIOException ex) {
             throttle = 0;
             System.out.println("Left Joystick error");
         }
         try {
-            turnRate = Util.constrain(Util.deadZone(Util.map(cypress.getAnalogIn(8), 0.7, 2.6, 1, -1), -0.07, 0.07), -1, 1);
+            turnRate = Util.constrain(Util.smoothDeadZone(Util.map(cypress.getAnalogIn(8), 0.7, 2.6, 1, -1), -0.07, 0.07, -1, 1, 0), -1, 1);
 
 
         } catch (DriverStationEnhancedIO.EnhancedIOException ex) {
@@ -565,7 +1049,7 @@ public class MainCode extends IterativeRobot {
             System.out.println("Right Joystick error");
         }
         try {
-            flyWheelSetSpeed = Util.map(cypress.getAnalogIn(2), 0, 3.3, 1, 0);
+            flyWheelSetSpeed = Util.constrain(Util.map(cypress.getAnalogIn(2), 0, 3.2, 1, 0), 0, 1);
 
         } catch (DriverStationEnhancedIO.EnhancedIOException ex) {
             flyWheelSetSpeed = 0;
@@ -588,24 +1072,14 @@ public class MainCode extends IterativeRobot {
             shooterPosUp = false;
             System.out.println("Shoot button error");
         }
+
         try {
-            autoAimEnable = !cypress.getDigital(5);
+            fire = cypress.getDigital(10);
         } catch (DriverStationEnhancedIO.EnhancedIOException ex) {
-            autoAimEnable = false;
-            System.out.println("autoAim button error");
-        }
-        try {
-            frisbeeLoad = cypress.getDigital(10);
-        } catch (DriverStationEnhancedIO.EnhancedIOException ex) {
-            frisbeeLoad = false;
+            fire = false;
             System.out.println("loadEnable error");
         }
-        /*try {
-         autonomousMode = (int)cypress.getAnalogIn(8);
-         } catch (DriverStationEnhancedIO.EnhancedIOException ex) {
-         autonomousMode = 3;
-         System.out.println("autonomousMode error");
-         }*/
+
         try {
             firstClimbEnable = !cypress.getDigital(2);
         } catch (DriverStationEnhancedIO.EnhancedIOException ex) {
@@ -615,13 +1089,13 @@ public class MainCode extends IterativeRobot {
         try {
             secondClimbEnable = !cypress.getDigital(6);
         } catch (DriverStationEnhancedIO.EnhancedIOException ex) {
-            firstClimbEnable = false;
+            secondClimbEnable = false;
             System.out.println("ClimbInit Error: Skynet is Not Pleased.");
         }
         try {
             thirdClimbEnable = !cypress.getDigital(4);
         } catch (DriverStationEnhancedIO.EnhancedIOException ex) {
-            firstClimbEnable = false;
+            thirdClimbEnable = false;
             System.out.println("ClimbInit Error");
         }
         try {
@@ -638,6 +1112,25 @@ public class MainCode extends IterativeRobot {
         }
         PTOPosition = (secondClimbEnable || thirdClimbEnable);
     }
+
+    private void autoAim() {
+        /*normalizedCenterX = dash.getNumber("CenterX", 0) / 320;
+         if (normalizedCenterX > 0.57) {
+         leftDriveVal = (Util.slowDown(0.485, normalizedCenterX, 4.75)) - 0.575;
+         rightDriveVal = -1 * leftDriveVal;
+         doneAiming = false;
+         } else if (normalizedCenterX < 0.43) {
+         leftDriveVal = Util.slowDown(0.515, normalizedCenterX, 4.75) + 0.575;
+         rightDriveVal = -1 * leftDriveVal;
+         doneAiming = false;
+         } else {
+         leftDriveVal = 0.0;
+         rightDriveVal = 0.0;
+         if (Util.absDif(normalizedCenterX, oldX) < 0.00000000001) {
+         doneAiming = true;
+         }
+         oldX = normalizedCenterX;
+         }
+         drive.tankDrive(leftDriveVal, rightDriveVal);*/
+    }
 }
-
-
