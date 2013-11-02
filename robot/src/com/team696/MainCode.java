@@ -131,6 +131,7 @@ public class MainCode extends IterativeRobot {
     boolean secondFireFirstRun = true;
 
     public void robotInit() {
+        System.out.println("Hello");
         autonomousTimer.start();
         leftEncoder.start();
         
