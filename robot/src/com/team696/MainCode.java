@@ -73,6 +73,7 @@ public class MainCode extends IterativeRobot {
     double kickUp = 0.0;
     double leftDrive = 0.0;
     double rightDrive = 0.0;
+    double dr_clouse_added_this_for_testing_github = 999.9;
     //flyWheelValues begin//
 
     double flyWheelSetSpeed = 0.0;
