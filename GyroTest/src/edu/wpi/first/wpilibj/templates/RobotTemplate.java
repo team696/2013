@@ -27,6 +27,7 @@ public class RobotTemplate extends IterativeRobot {
     
     double throttle = 0.0;
     double turn = 0.0;
+    double angle = 0.0;
     double fixPos = 0.0;
     boolean reset = false;
     public void robotInit() {
@@ -61,7 +62,8 @@ public class RobotTemplate extends IterativeRobot {
     }
     public void getController() {
         throttle = -controller.getRawAxis(2);
-        turn = controller.getRawAxis(3);
+        turn = controller.getRawAxis(3)/10;
+        angle = Util.constrain(angle+(turn/50),-1,1);
         reset = controller.getRawButton(2);
     }
     /**
