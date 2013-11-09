@@ -33,6 +33,7 @@ import edu.wpi.first.wpilibj.Gyro;
 public class MainCode extends IterativeRobot {
 
     DriverStationEnhancedIO cypress = DriverStation.getInstance().getEnhancedIO();
+    Gyro gyro = new Gyro(2);
     /**
      * This function is run when the robot is first started up and should be
      * used for any initialization code.
@@ -330,7 +331,7 @@ public class MainCode extends IterativeRobot {
             oldLeftDist = leftEncoder.getDistance();
 
         } else if (autonomousMode == 2) {
-            
+            cumAngle = gyro.getAngle();
             //lcd.println(DriverStationLCD.Line.kMain6, 0, );
             switch (autonomousStage) {                           //state machine using switch statements
                 case 0:
