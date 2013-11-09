@@ -331,7 +331,7 @@ public class MainCode extends IterativeRobot {
             oldLeftDist = leftEncoder.getDistance();
 
         } else if (autonomousMode == 2) {
-            cumAngle = gyro.getAngle();
+            cumAngle = gyro.getAngle()/90;
             //lcd.println(DriverStationLCD.Line.kMain6, 0, );
             switch (autonomousStage) {                           //state machine using switch statements
                 case 0:
