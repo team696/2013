@@ -34,6 +34,7 @@ public class MainCode extends IterativeRobot {
 
     DriverStationEnhancedIO cypress = DriverStation.getInstance().getEnhancedIO();
     Gyro gyro = new Gyro(2);
+    double setAngle = 0;
     /**
      * This function is run when the robot is first started up and should be
      * used for any initialization code.
@@ -822,6 +823,7 @@ public class MainCode extends IterativeRobot {
 
     public void teleopPeriodic() {
         //System.out.println(rightEncoder.getDistance()+"    "+leftEncoder.getDistance());
+        
         autonomousStage = 0;
         autonomousTimer.reset();
         leftEncoder.reset();
@@ -830,10 +832,11 @@ public class MainCode extends IterativeRobot {
         autoPos = 0;
         rightEncoder.reset();
         leftEncoder.reset();
-
-
-        getCypress();
-        //getController();
+        
+        setAngle += turnRate;
+        //getCypress();
+        
+        getController();
         firstClimb.set(firstClimbEnable);
 
         if (shooterEnable) {
@@ -855,24 +858,11 @@ public class MainCode extends IterativeRobot {
         kickUpTalon.set(-frontRollerSpeed);
         pickUpRollersTalon.set(frontRollerSpeed);//div by 2.2
         ConveyorTalon.set(Util.constrain(conveyorMotorVal, -1, 0));
-
-if (fastTurn) {
-
-            rightDriveVal = Util.signOf(throttle) * turnRate * -4;
-            leftDriveVal = Util.signOf(throttle) * turnRate * 4;
-
-        } else {
-            if (throttle >= 0) {
-                rightDriveVal = (throttle) + ((-1 * (turnRate * (1.15 - throttle))) / 1.3);
-                leftDriveVal = throttle + ((turnRate * (1.15 - throttle)) / 1.3);
-            } else {//switch left and right driveval around if want like a car
-                leftDriveVal = (throttle) + (((turnRate * (1.15 + (throttle)))) / 1.3);
-                rightDriveVal = (throttle) + ((-1 * (turnRate * (1.15 + (throttle)))) / 1.3);
-            }
-        }
-        rightDriveSetVal = Util.smooth(rightDriveVal, rightDriveSetVal, 2);
-        leftDriveSetVal = Util.smooth(leftDriveVal, leftDriveSetVal, 2);
-        drive.tankDrive(-leftDriveSetVal, -rightDriveSetVal);
+        
+        turnController.update(setAngle/90,gyro.getAngle()/90);
+        drive.arcadeDrive(throttle,turnController.getOutput());
+        System.out.println(setAngle);
+        
         if ((fire)&&(shooterPos.get())) {
 
             if (fireTimer.get() < 0.4) {
@@ -914,6 +904,9 @@ if (fastTurn) {
     public void getController() {
         leftDrive = controller2.getRawAxis(2);
         rightDrive = controller2.getRawAxis(4);
+        turnRate = (leftDrive-rightDrive)/2;
+        throttle = (leftDrive+rightDrive)/2;
+        
         if (controller2.getRawButton(2) && !oldButtons[2] && (flyWheelSetSpeed >= 0.1)) {
             flyWheelSetSpeed -= 0.1;
         }
