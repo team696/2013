@@ -4,7 +4,6 @@
 #include <pthread.h>
 #include <time.h>
 #include <opencv2/opencv.hpp>
-#include "usb_camera.h"
 #include "frame_queue.h"
 #include "cam_thread.h"
 

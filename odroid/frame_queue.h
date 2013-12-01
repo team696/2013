@@ -7,20 +7,48 @@
 #include <stdbool.h>
 #include "any_frame_queue.h"
 
+/******************************************************************//**
+ * @brief Implements a queue of frames.
+ *
+ * Pointers to frames are actually stored on the queue, but whoever
+ * holds the pointer is assumed to have exclusive read/write control
+ * of the frame itself.
+ */
 class Frame_Queue: public Any_Frame_Queue {
 private:
+    /** The maximum number of items that will fit in any queue. */
     static const int MAX_QUEUE_SIZE = 32;
+
+    /** True indicates that if the queue is empty, pop() will block until a
+        new item is available.  False indicates that if the queue is empty,
+        pop() will return NULL immediately. */
     bool block_on_empty;
+
+    /** True indicates that if the queue is full, push() will block until
+        space is made available.  False indicates that if the queue is full,
+        push will return immediately with an error. */
     bool block_on_full;
+
+    /** The maximum number of items that will fit in this queue, and the
+        size of the used portion of the ptr array. */
     int size;
-    int head;
-    int tail;
-    Usb_Frame* ptr[MAX_QUEUE_SIZE + 1];
+    int head; /// Index in ptr array of the head of the queue.
+    int tail; /// Index in ptr array of the tail of the queue.
+    Usb_Frame* ptr[MAX_QUEUE_SIZE + 1];  /// Contains all items on the queue
+
+    /** Before accessing any field of this class, a function must first acquire
+        exclusive access by holding this mutex.  See pthread_mutex_lock(3). */
     pthread_mutex_t mutex;
+
+    /** Implements a signal sent to a thread waiting for an empty queue to
+        become non-empty. */
     pthread_cond_t empty_cond;
+
+    /** Implements a signal sent to a thread waiting for a full queue to
+        acquire some free space. */
     pthread_cond_t full_cond;
 
-    /******************************************************************//*
+    /******************************************************************//**
      * @brief Return the current count of items in the queue.
      */
     int get_item_count();
@@ -28,7 +56,7 @@ private:
 public:
 
 
-    /******************************************************************//*
+    /******************************************************************//**
      * @brief Construct a new Frame_Queue.
      *
      * @param [in] max_size        The maximum number of items the queue will
@@ -45,7 +73,7 @@ public:
                 bool block_on_full = true);
 
 
-    /******************************************************************//*
+    /******************************************************************//**
      * @brief Push a new item onto the queue.
      *
      * If the queue is already full, the behavior depends on the setting of
@@ -62,7 +90,7 @@ public:
      */
     virtual int push(Usb_Frame* frame_ptr);
 
-    /******************************************************************//*
+    /******************************************************************//**
      * @brief Pop the next item from the front of the queue.
      *
      * If the queue is emtpy, the behavior depends on the the setting of the

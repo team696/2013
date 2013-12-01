@@ -19,9 +19,16 @@
 
 #include "any_frame_queue.h"
 
+/**********************************************************************//**
+ * @brief Base class for any exception thrown by this module.
+ */
 class Usb_Cam_Err: public std::exception {
 protected:
+
+    /** The maximum number of bytes in an errmsg (including terminating NUL). */
     static const int ERRMSG_MAX = 100;
+
+    /** The error message to be returned from std::exception.what(). */
     char errmsg[ERRMSG_MAX];
 
 public:
@@ -40,6 +47,12 @@ public:
 };
 
 
+/**********************************************************************//**
+ * @brief Indicates that the camera driver tried to capture a new frame, but
+ *        there were no frames on the free list.
+ *
+ * It should be impossible for this exception to occur.
+ */
 class Usb_Cam_Err_Unexpected_Empty_Free_List: public Usb_Cam_Err {
 public:
     Usb_Cam_Err_Unexpected_Empty_Free_List()
@@ -48,8 +61,18 @@ public:
 };
 
 
+/**********************************************************************//**
+ * @brief Indicates a failure to open a video device.
+ */
 class Usb_Cam_Err_Cant_Open_Device: public Usb_Cam_Err {
 public:
+
+    /**********************************************************************//**
+     * @brief Construct the exception.
+     *
+     * @param [in] device_name The path to the device.
+     * @param [in] err_num     The value of errno returned from open(2).
+     */
     Usb_Cam_Err_Cant_Open_Device(const char* device_name, int err_num)
     {
         if (err_num < sys_nerr) {
@@ -66,29 +89,37 @@ public:
 };
 
 
-/*
-class Usb_Cam_Err_Bad_Format_Id: public Usb_Cam_Err {
-public:
-    Usb_Cam_Err_Bad_Format_Id(const char* device_name, int format_id)
-    {
-        snprintf(errmsg, ERRMSG_MAX,
-                 "Usb_Cam_Err_Bad_Format_Id: device_name= %s format_id= %d",
-                 device_name, format_id);
-        errmsg[ERRMSG_MAX-1] = '0';
-    }
-};
-*/
-
-
+/**********************************************************************//**
+ * @brief Indicates the failure of a call to ioctl.
+ */
 class Usb_Cam_Err_Ioctl: public Usb_Cam_Err {
 public:
+
+    /***********************************************************************//**
+     * @brief Return a string containing the enum name of the given ioctl
+     *        request ("VIDIOC_XXXX").
+     *
+     * @param [in] request      The ioctl request of interest.
+     * @param [in] name_bytes   The size of the caller-supplied name.
+     * @param [out] name        Returns the name.
+     */
     static void request_name(int request, size_t name_bytes, char name[]);
 
+    /**********************************************************************//**
+     * @brief Construct the exception.
+     *
+     * @param [in] dev_name    The path to the device.
+     * @param [in] request     The request argument to the ioctl(2) call.
+     * @param [in] err_num     The value of errno returned from ioctl(2).
+     */
     Usb_Cam_Err_Ioctl(const char* dev_name, int request, int err_num)
     {
         char req_name[ERRMSG_MAX];
         request_name(request, ERRMSG_MAX, req_name);
         if (err_num < sys_nerr) {
+
+            // Use the system error message if possible.
+
             snprintf(errmsg, ERRMSG_MAX,
                      "Usb_Cam_Err_Ioctl %s: %s; %s",
                      dev_name, req_name, sys_errlist[err_num]);
@@ -104,14 +135,24 @@ public:
 
 class Usb_Camera;
 
+/**********************************************************************//**
+ * @brief Represents a frame captured by a Usb_Camera.
+ */
 class Usb_Frame {
     friend class Usb_Camera;
 private:
+
+    /** Identifies the buffer information for this frame used by the driver. */
     struct v4l2_buffer* vbuf_ptr;
-    uint8_t* img_data;
-    int rows;
-    int cols;
-public:
+    uint8_t* img_data; /// Points to the first pixel of the image.
+    int rows;          /// The number of rows in the image.
+    int cols;          /// The number of colums in the image.
+
+    /**********************************************************************//**
+     * @brief Construct a NULL frame.
+     *
+     * Only a Usb_Camera can contruct a Usb_Frame.
+     */
     Usb_Frame()
     : vbuf_ptr(NULL),
       img_data(NULL),
@@ -119,26 +160,50 @@ public:
       cols(0)
     { }
 
+public:
+
+    /**********************************************************************//**
+     * @brief Return the time at which this frame was captured.
+     */
     struct timeval get_timestamp() const
     {
         return vbuf_ptr->timestamp;
     }
 
+    /**********************************************************************//**
+     * @brief Return the frame number.
+     *
+     * Frame numbers start at 0 and increment once for every frame the driver
+     * captures.  Skipped frames may be detected by comparing consecutive frame
+     * numbers.
+     */
     int get_frame_num() const
     {
         return vbuf_ptr->sequence;
     }
 
+    /**********************************************************************//**
+     * @brief Return the number of rows in this image.
+     */
     int get_rows() const
     {
         return rows;
     }
 
+    /**********************************************************************//**
+     * @brief Return the number of columns in this image.
+     */
     int get_cols() const
     {
         return cols;
     }
 
+    /**********************************************************************//**
+     * @brief Return a pointer to the first pixel in the image.
+     * 
+     * The first pixel appears in the upper, left corner of the image.
+     * Subsequent pixels follow in row major order.
+     */
     unsigned char* get_img_data() const
     {
         return img_data;
@@ -254,11 +319,24 @@ public:
      */
     void deinit();
 
+
+    /*******************************************************************//*
+     * @brief Return the device_name passed into the constuctor call that
+     *        created this Usb_Camera.
+     */
     const char* get_device_name()
     {
         return dev_name;
     }
 
+
+    /*******************************************************************//*
+     * @brief Return the current format_id, which identifies what format
+     *        the camera is currently producing.
+     *
+     * The format_id may be passed to get_format() to get information about
+     * the format.
+     */
     int get_current_format_id() const
     {
         return fmt_current;
@@ -281,29 +359,116 @@ public:
     int get_format(int format_id,
                    const struct v4l2_fmtdesc*& desc_ptr) const;
 
+
+    /*******************************************************************//*
+     * @brief Fill the given string with a human-readable description of
+     *        the given camera format.
+     *
+     * @param [in] fmt_desc  Describes a camera format.
+     * @param [in] bytes     The size of the caller-supplied str.
+     * @param [out] str      Returns the human-readable string.
+     *
+     * @return Returns str.
+     */
     static const char* format_str(const struct v4l2_fmtdesc& fmt_desc,
                                   size_t bytes,
                                   char str[]);
 
+
+    /*******************************************************************//*
+     * @brief Fill the given string with a human-readable description of
+     *        the given frame interval.
+     *
+     * @param [in] frm_ival  Describes a frame interval (the time between
+     *                       successive frames)
+     * @param [in] bytes     The size of the caller-supplied str.
+     * @param [out] str      Returns the human-readable string.
+     *
+     * @return Returns str.
+     */
     static const char* frame_interval_str(
                                   const struct v4l2_frmivalenum& frm_ival,
                                   size_t bytes,
                                   char str[]);
 
-    void set_format_and_frame_size(int format_id, int arg_rows, int arg_cols);
 
+    /*******************************************************************//*
+     * @brief Set the image format and size.
+     *
+     * @param [in] format_id  Specifies the image format to which the camera
+     *                        should be set.  Legal values are in the range
+     *                        0..n-1, where n is the number of supported
+     *                        formats.  If format_id is not in this range, the
+     *                        current image format is used.
+     * @param [in] rows       Specifies the desired row size of the image.
+     * @param [in] cols       Specifies the desired column size of the image.
+     */
+    void set_format_and_frame_size(int format_id, int rows, int cols);
+
+
+
+    /*******************************************************************//*
+     * @brief Fill the given array with all possible frame sizes supported
+     *        by this camera when using the specified image format.
+     *
+     * @param [in] format_id  Specifies the image format of interest.  Legal
+     *                        values are in the range 0..n-1, where n is the
+     *                        number of supported formats.  If format_id is
+     *                        not in this range, the current image format is
+     *                        used.
+     * @param [in] size       The number of elements in the caller-supplied
+     *                        frm_size array.
+     * @param [out] frm_size  Frm_size[i] returns the ith frame size
+     *                        descriptor.
+     * @return The number of array elements filled in by this routine.  This
+     *         will be a number in the range 1..size.  If more than size
+     *         frame sizes are supported only the first size are returned.
+     */
     int get_supported_frame_sizes(int& format_id,
                                   size_t size,
                                   struct v4l2_frmsizeenum frm_size[]) const;
 
+
+    /*******************************************************************//*
+     * @brief Fill the given array with all possible frame intervals supported
+     *        by this camera when using the specified image format and image
+     *        size.
+     *
+     * @param [in] format_id  Specifies the image format of interest.  Legal
+     *                        values are in the range 0..n-1, where n is the
+     *                        number of supported formats.  If format_id is
+     *                        not in this range, the current image format is
+     *                        used.
+     * @param [in] rows       Specifies the desired row size of the image.
+     * @param [in] cols       Specifies the desired column size of the image.
+     * @param [in] size       The number of elements in the caller-supplied
+     *                        frm_ival array.
+     * @param [out] frm_ival  Frm_ival[i] returns the ith frame interval
+     *                        descriptor.
+     * @return The number of array elements filled in by this routine.  This
+     *         will be a number in the range 1..size.  If more than size
+     *         frame intervals are supported only the first size are returned.
+     */
     int get_supported_frame_intervals(int& format_id,
                                       int& rows,
                                       int& cols,
                                       size_t size,
                                       struct v4l2_frmivalenum frm_ival[]) const;
 
+    /*******************************************************************//*
+     * @brief Set the camera frame interval.
+     *
+     * The frame interval is the time between successive frames.  It is
+     * represented as a fraction (numerator / denominator) in seconds.
+     *
+     * The frame rate (frames per second) equals 1.0 / frame_interval.
+     *
+     * @param [in] numerator   The numerator of the frame interval fraction.
+     * @param [in] denominator The denominator.
+     */
     void set_frame_interval(unsigned int numerator,
                             unsigned int denominator);
+
 
     /*******************************************************************//*
      * @brief Return the number of video buffers in use by the driver.

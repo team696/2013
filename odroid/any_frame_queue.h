@@ -6,6 +6,9 @@
 
 class Usb_Frame;
 
+/**********************************************************************
+ * @brief Base class for all Frame_Queue types.
+ */
 class Any_Frame_Queue {
 public:
     virtual int push(Usb_Frame* frame_ptr) = 0;

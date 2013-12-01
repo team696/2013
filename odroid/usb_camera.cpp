@@ -210,17 +210,27 @@ void Usb_Cam_Err_Ioctl::request_name(int request,
 
 void Usb_Camera::init_mmap(int buf_count_arg)
 {
+
+    /* Request buffers from the driver. */
+
     struct v4l2_requestbuffers req = {0};
     if (buf_count_arg > MAX_BUFS) buf_count_arg = MAX_BUFS;
     req.count = buf_count_arg;
     req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     req.memory = V4L2_MEMORY_MMAP;
- 
     yioctl(VIDIOC_REQBUFS, &req);
     this->buf_count = req.count;
+
+    /* Create a new Frame_Queue to hold one as many frames as there
+       are buffers. */
+
     frame_queue_ptr = new Frame_Queue(this->buf_count, false, false);
  
     for (int i = 0; i < this->buf_count; ++i) {
+
+        /* Map the device's image buffer to shared memory that the CPU
+           can access. */
+
         vbuf[i] = zero_v4l2_buffer();
         vbuf[i].type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         vbuf[i].memory = V4L2_MEMORY_MMAP;
@@ -236,7 +246,13 @@ void Usb_Camera::init_mmap(int buf_count_arg)
             this->buf_count = i;
             break;
         }
+
+        /* Associate the buffer with the frame. */
+
         frame[i].vbuf_ptr = &vbuf[i];
+
+        /* Push the frame onto the frame queue, so it can be popped later. */
+
         push(&frame[i]);
     }
 }
