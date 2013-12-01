@@ -236,8 +236,6 @@ void Usb_Camera::init_mmap(int buf_count_arg)
             this->buf_count = i;
             break;
         }
-        printf("Length: %d\nAddress: %p\n", buf_bytes, frame[i].img_data);
-        printf("Image Length: %d\n", vbuf[i].bytesused);
         frame[i].vbuf_ptr = &vbuf[i];
         push(&frame[i]);
     }
@@ -249,15 +247,7 @@ int Usb_Camera::push(Usb_Frame* frame_ptr)
 
     yioctl(VIDIOC_QBUF, frame_ptr->vbuf_ptr);
 
-#if 0
-    // Add this frame onto the free list.
-
-    frame_ptr->next_free_ptr = free_head_ptr;
-    free_head_ptr = frame_ptr;
-    int count = 0;
-#else
     int count = frame_queue_ptr->push(frame_ptr);
-#endif
     return count;
 }
 
@@ -278,16 +268,8 @@ Usb_Frame* Usb_Camera::pop(int& count)
     int r = select(fd+1, &fds, NULL, NULL, &tv);
     if (r < 0) return NULL;  // timeout
 
-#if 0
-    // Get a frame off the free list.
-
-    Usb_Frame* frame_ptr = free_head_ptr;
-    if (frame_ptr == NULL) throw Usb_Cam_Err_Unexpected_Empty_Free_List();
-    free_head_ptr = free_head_ptr->next_free_ptr;
-#else
     Usb_Frame* frame_ptr = frame_queue_ptr->pop(count);
     if (frame_ptr == NULL) throw Usb_Cam_Err_Unexpected_Empty_Free_List();
-#endif
  
     // Dequeue the vbuf.
 
@@ -320,17 +302,12 @@ void Usb_Camera::set_format_and_frame_size(int format_id,
     this->rows = fmt.fmt.pix.height;
     if (format_id > 0) this->fmt_current = format_id;
 
-    char fourcc[5] = {0};
-    strncpy(fourcc, (char *)&fmt.fmt.pix.pixelformat, 4);
-    printf("Selected Camera Mode:\n"
-           "  Width: %d\n"
-           "  Height: %d\n"
-           "  PixFmt: %s\n"
-           "  Field: %d\n",
-           fmt.fmt.pix.width,
-           fmt.fmt.pix.height,
-           fourcc,
-           fmt.fmt.pix.field);
+    /*
+    char str[81];
+    printf("%s selected mode: %d x %d %s\n", 
+           dev_name, fmt.fmt.pix.height, fmt.fmt.pix.width,
+           format_str(*fmt_desc_ptr, 81, str));
+    */
 }
 
 
@@ -367,8 +344,40 @@ const char* Usb_Camera::format_str(const struct v4l2_fmtdesc& fmt_desc,
 }
 
 
+const char* Usb_Camera::frame_interval_str(
+                                    const struct v4l2_frmivalenum& frm_ival,
+                                    size_t bytes,
+                                    char str[])
+{
+    if (frm_ival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
+        snprintf(str, bytes, "DISC %u / %u", frm_ival.discrete.numerator,
+               frm_ival.discrete.denominator);
+    } else if (frm_ival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS) {
+        snprintf(str, bytes, "CONT %u / %u .. %u / %u by %u / %u",
+               frm_ival.stepwise.min.numerator,
+               frm_ival.stepwise.min.denominator,
+               frm_ival.stepwise.max.numerator,
+               frm_ival.stepwise.max.denominator,
+               frm_ival.stepwise.step.numerator,
+               frm_ival.stepwise.step.denominator);
+    } else if (frm_ival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
+        snprintf(str, bytes, "STEP %u / %u .. %u / %u by %u / %u",
+               frm_ival.stepwise.min.numerator,
+               frm_ival.stepwise.min.denominator,
+               frm_ival.stepwise.max.numerator,
+               frm_ival.stepwise.max.denominator,
+               frm_ival.stepwise.step.numerator,
+               frm_ival.stepwise.step.denominator);
+    } else {
+        snprintf(str, bytes, "UNKNOWN_FRAME_INTERVAL_TYPE");
+    }
+    str[bytes - 1] = '\0';
+    return str;
+}
+
+
 int Usb_Camera::get_supported_frame_sizes(
-                                int format_id,
+                                int& format_id,
                                 size_t size,
                                 struct v4l2_frmsizeenum frm_size[]) const
 {
@@ -377,10 +386,70 @@ int Usb_Camera::get_supported_frame_sizes(
     unsigned int i = 0;
     while (1) {
         if ((size_t)i >= size) break;
+        memset(&frm_size[i], 0, sizeof(frm_size[i]));
         frm_size[i].pixel_format = fmt_desc_ptr->pixelformat;
         frm_size[i].index = i;
         try {
             yioctl(VIDIOC_ENUM_FRAMESIZES, &frm_size[i]);
+        } catch (...) {
+            break;
+        }
+        ++i;
+    }
+    return i;
+}
+
+
+void Usb_Camera::set_frame_interval(unsigned int numerator,
+                                    unsigned int denominator)
+{
+    struct v4l2_streamparm parm;
+    parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    parm.parm.capture.capability = V4L2_CAP_TIMEPERFRAME;
+    parm.parm.capture.capturemode = 0;
+    parm.parm.capture.timeperframe.numerator = numerator;
+    parm.parm.capture.timeperframe.denominator = denominator;
+    parm.parm.capture.extendedmode = 0;
+    parm.parm.capture.readbuffers = 0;
+    yioctl(VIDIOC_S_PARM, &parm);
+}
+
+int Usb_Camera::get_supported_frame_intervals(
+                                int& format_id,
+                                int& arg_rows,
+                                int& arg_cols,
+                                size_t size,
+                                struct v4l2_frmivalenum frm_ival[]) const
+{
+    // Verify format
+    const struct v4l2_fmtdesc* fmt_desc_ptr;
+    format_id = get_format(format_id, fmt_desc_ptr);
+
+    // Verify image size
+    struct v4l2_format fmt = {(v4l2_buf_type)0};
+    fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+    fmt.fmt.pix.width = arg_cols;
+    fmt.fmt.pix.height = arg_rows;
+    fmt.fmt.pix.pixelformat = fmt_desc_ptr->pixelformat;
+    fmt.fmt.pix.field = V4L2_FIELD_NONE;
+
+    yioctl(VIDIOC_TRY_FMT, &fmt);
+
+    arg_cols = fmt.fmt.pix.width;
+    arg_rows = fmt.fmt.pix.height;
+
+    unsigned int i = 0;
+    while (1) {
+        if ((size_t)i >= size) break;
+        memset(&frm_ival[i], 0, sizeof(frm_ival[i]));
+        frm_ival[i].pixel_format = fmt_desc_ptr->pixelformat;
+        frm_ival[i].index = i;
+        frm_ival[i].width = arg_cols;
+        frm_ival[i].height = arg_rows;
+
+        try {
+            yioctl(VIDIOC_ENUM_FRAMEINTERVALS, &frm_ival[i]);
         } catch (...) {
             break;
         }

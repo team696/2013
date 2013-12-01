@@ -285,11 +285,25 @@ public:
                                   size_t bytes,
                                   char str[]);
 
+    static const char* frame_interval_str(
+                                  const struct v4l2_frmivalenum& frm_ival,
+                                  size_t bytes,
+                                  char str[]);
+
     void set_format_and_frame_size(int format_id, int arg_rows, int arg_cols);
 
-    int get_supported_frame_sizes(int format_id,
+    int get_supported_frame_sizes(int& format_id,
                                   size_t size,
                                   struct v4l2_frmsizeenum frm_size[]) const;
+
+    int get_supported_frame_intervals(int& format_id,
+                                      int& rows,
+                                      int& cols,
+                                      size_t size,
+                                      struct v4l2_frmivalenum frm_ival[]) const;
+
+    void set_frame_interval(unsigned int numerator,
+                            unsigned int denominator);
 
     /*******************************************************************//*
      * @brief Return the number of video buffers in use by the driver.

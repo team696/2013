@@ -17,6 +17,18 @@ public:
     Usb_Camera* cam_ptr;
 };
 
+static double tv_subtract(const struct timeval& a, const struct timeval& b)
+{
+    const long USEC_PER_SECOND = 1000000;
+    suseconds_t usec_diff = a.tv_usec - b.tv_usec;
+    time_t sec_diff = a.tv_sec - b.tv_sec;
+    if (usec_diff < 0) {
+        usec_diff += USEC_PER_SECOND;
+        sec_diff -= 1;
+    }
+    return sec_diff + usec_diff / (double)USEC_PER_SECOND;
+}
+
 static double ts_subtract(const struct timespec& a, const struct timespec& b)
 {
     const long NSEC_PER_SECOND = 1000000000;
@@ -34,20 +46,26 @@ static void* capture_thread(void* thread_arg_ptr)
     Thread_Info* iptr = (Thread_Info*)thread_arg_ptr;
     Usb_Camera* cam_ptr = iptr->cam_ptr;
     cam_ptr->stream_start();
-    struct timespec start_time;
-    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_time);
+    struct timeval start_time;
+    struct timespec start_cpu_time;
+    gettimeofday(&start_time, NULL);
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_cpu_time);
     while (1) {
         int in_count;
         Usb_Frame* frame_ptr = iptr->in_queue_ptr->pop(in_count);
 
-        struct timespec now;
-        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &now);
-        double cpu_secs = ts_subtract(now, start_time);
+        struct timeval now;
+        struct timespec now_cpu_time;
+        gettimeofday(&now, NULL);
+        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &now_cpu_time);
+        double secs = tv_subtract(now, start_time);
+        double cpu_secs = ts_subtract(now_cpu_time, start_cpu_time);
         struct timeval tv = frame_ptr->get_timestamp();
         int out_count = iptr->out_queue_ptr->push(frame_ptr);
-        printf("capture %s: in=%d out=%d frame=%7d time=%10ld.%06ld cpu=%g\n",
+        printf("capture %s: in=%d out=%d frame=%7d time=%10ld.%06ld cpu=%.6f (%3d%%)\n",
                cam_ptr->get_device_name(), in_count, out_count,
-               frame_ptr->get_frame_num(), tv.tv_sec, tv.tv_usec, cpu_secs);
+               frame_ptr->get_frame_num(), tv.tv_sec, tv.tv_usec, cpu_secs,
+               (int)(cpu_secs / secs * 100.0 + 0.5));
 
     }
     return NULL;
@@ -57,8 +75,10 @@ static void* display_thread(void* thread_arg_ptr)
 {
     Thread_Info* iptr = (Thread_Info*)thread_arg_ptr;
     const char* dev_name = iptr->cam_ptr->get_device_name();
-    struct timespec start_time;
-    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_time);
+    struct timeval start_time;
+    struct timespec start_cpu_time;
+    gettimeofday(&start_time, NULL);
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start_cpu_time);
     while (1) {
         int in_count;
         Usb_Frame* frame_ptr = iptr->in_queue_ptr->pop(in_count);
@@ -72,14 +92,18 @@ static void* display_thread(void* thread_arg_ptr)
         cv::imshow(dev_name, image);
         cv::waitKey(1);
 
-        struct timespec now;
-        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &now);
-        double cpu_secs = ts_subtract(now, start_time);
+        struct timeval now;
+        struct timespec now_cpu_time;
+        gettimeofday(&now, NULL);
+        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &now_cpu_time);
+        double secs = tv_subtract(now, start_time);
+        double cpu_secs = ts_subtract(now_cpu_time, start_cpu_time);
         struct timeval tv = frame_ptr->get_timestamp();
         int out_count = iptr->out_queue_ptr->push(frame_ptr);
-        printf("display %s: in=%d out=%d frame=%7d time=%10ld.%06ld cpu=%g\n",
+        printf("display %s: in=%d out=%d frame=%7d time=%10ld.%06ld cpu=%.6f (%3d%%)\n",
                dev_name, in_count, out_count, frame_ptr->get_frame_num(),
-               tv.tv_sec, tv.tv_usec, cpu_secs);
+               tv.tv_sec, tv.tv_usec, cpu_secs,
+               (int)(cpu_secs / secs * 100.0 + 0.5));
 
     }
     return NULL;
