@@ -1,5 +1,5 @@
 /**********************************************************************
- * Copyright 2013 by team696.com.
+ * Placed in the public domain by the author, Daniel Clouse, November 15, 2014.
  */
 
 //code originated at http://jayrambhia.com/blog/capture-v4l2/

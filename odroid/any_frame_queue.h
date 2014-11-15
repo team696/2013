@@ -1,5 +1,5 @@
 /**********************************************************************
- * Copyright 2013 by team696.com.
+ * Placed in the public domain by the author, Daniel Clouse, November 15, 2014.
  */
 #ifndef ANY_FRAME_QUEUE_H
 #define ANY_FRAME_QUEUE_H
