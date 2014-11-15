@@ -484,6 +484,7 @@ public:
     void stream_start()
     {
         uint32_t type = vbuf[0].type;
+printf("stream_start %d %d %d\n", this->fd, VIDIOC_STREAMON, type);
         yioctl(VIDIOC_STREAMON, &type);
     }
 

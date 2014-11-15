@@ -22,16 +22,19 @@ int main()
      */
     pthread_t thread_id[CAM_COUNT];
 
-    //cam[0].init("/dev/video10", 2, 240, 320, 5);
-    //cam[0].set_frame_interval(1, 125);
+    cam[0].init("/dev/video10", 2, 240, 320, 5);
+    cam[0].set_frame_interval(1, 60);
 
-    cam[0].init("/dev/video10", 2, 480, 640, 5);
-    cam[0].set_frame_interval(1, 30);
+    //cam[0].init("/dev/video10", 2, 480, 640, 5);
+    //cam[0].set_frame_interval(1, 30);
     //cam[1].init("/dev/video11", 2, 480, 640, 5);
+/*
     cam[1].init("/dev/video11", 2, 240, 320, 5);
     cam[1].set_frame_interval(1, 40);
 
     int cam_count = 2;
+*/
+    int cam_count = 1;
     for (int i = 0; i < cam_count; ++i) {
         const int STR_BYTES = 81;
         char str[STR_BYTES];
