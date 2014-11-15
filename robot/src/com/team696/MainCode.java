@@ -63,6 +63,8 @@ public class MainCode extends IterativeRobot {
 
     PIDController speedController = new PIDController(0.3, 0.0, 0.2);
     PIDController turnController = new PIDController(6.0, 0.2, 1.0);
+    
+    TBHController flywheelController = new TBHController(9001, 1E-5);
     double cumAngle = 0.0;
     Compressor compressor = new Compressor(1, 2); // compressor
     double oldX = 0.0;
@@ -73,11 +75,11 @@ public class MainCode extends IterativeRobot {
     double kickUp = 0.0;
     double leftDrive = 0.0;
     double rightDrive = 0.0;
-    double dr_clouse_added_this_for_testing_github = 999.9;
     //flyWheelValues begin//
 
     double flyWheelSetSpeed = 0.0;
-
+    Encoder flywheelEncoder = new Encoder(4, 5);
+    
     //flyWheelValues end//
     double rightDriveVal = 0.0;
     double leftDriveVal = 0.0;
@@ -131,6 +133,7 @@ public class MainCode extends IterativeRobot {
     boolean firstRun = true;
     boolean secondFireFirstRun = true;
 
+    
     public void robotInit() {
         System.out.println("Hello");
         autonomousTimer.start();
@@ -831,11 +834,15 @@ public class MainCode extends IterativeRobot {
         leftEncoder.reset();
 
 
-        getCypress();
-        //getController();
+        //getCypress();
+        getController();
         firstClimb.set(firstClimbEnable);
 
+        
+        SmartDashboard.putNumber("Plot 0", flyWheelSetSpeed);
+        SmartDashboard.putNumber("Plot 1",  flyWheelEncoder.getRate());
         if (shooterEnable) {
+            
             flywheelMotorTalon1.set(-flyWheelSetSpeed);
             flywheelMotorTalon2.set(-flyWheelSetSpeed);
         } else {
